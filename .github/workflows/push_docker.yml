@@ -6,6 +6,7 @@ on:
       - ".devcontainer/Dockerfile"
       - ".devcontainer/Dockerfile.gpu"
       - "requirements.txt"
+      - ".github/workflows/push_docker.yml"
 
 concurrency:
   group: docker
