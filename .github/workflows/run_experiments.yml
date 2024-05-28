@@ -1,0 +1,74 @@
+name: training
+
+on:
+  workflow_dispatch:
+    inputs:
+      number-jobs:
+        description: "Number of concurrent jobs"
+        required: true
+        default: 32
+  push:
+    paths-ignore:
+        - "benchmarl/run_figures.py"
+        - "benchmarl/plot_figures.py"
+        - ".github/workflows/generate_figures.yml"
+        - "benchmarl/llm_mlp.py"
+env:
+  number-jobs: 32
+
+concurrency:
+  group: run
+  cancel-in-progress: false
+
+jobs:
+  prejob:
+    runs-on: gridsearch
+    outputs:
+      job_matrix: ${{ steps.set-matrix.outputs.job_matrix }}
+    steps:
+      - name: Use python3 to convert number-jobs to a list
+        id: set-matrix
+        run: |
+          echo "Running on branch ${{ github.ref }}"
+          # send telegram message that we are starting a job, send the json config
+          matrix_value=$(python3 -c "print(str(list(range(0, ${{ github.event.inputs.number-jobs || env.number-jobs }} ))).replace(' ', ''))")          
+          echo "job_matrix=$matrix_value" >> $GITHUB_OUTPUT
+
+  run:
+    # permissions:
+    #   contents: read
+    timeout-minutes: 2880 # 24 hours
+    runs-on: gridsearch
+    #runs-on: "hostname:l4-8x"
+    #runs-on: hostname:a100--us-west4-b
+    container:
+      image: dockerteamcore/benchmarl:latest # can also use local dockerfile
+      options: --gpus all
+    needs: prejob
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        job: ${{ fromJson(needs.prejob.outputs.job_matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ssh-key: ${{secrets.SSH_PRIVATE_KEY}}
+
+      - name: run nvidia-smi
+        run: nvidia-smi
+
+      - name: Run code
+        run: |
+          echo "Running tests on job ${{ matrix.job }}"
+          source .envrc
+
+          pip install -e . --user     
+          export WANDB_API_KEY=${{secrets.WANDB_API_KEY}}
+          git config --global --add safe.directory /__w/BenchMARL/BenchMARL
+          python benchmarl/run_off_pol_gridsearch.py --job=${{ matrix.job }} --total=${{env.number-jobs}}
+
+ 

@@ -427,6 +427,7 @@ class Experiment(CallbackNotifier):
             )
             for group in self.group_map.keys()
         }
+            
         self.losses = {
             group: self.algorithm.get_loss_and_updater(group)[0]
             for group in self.group_map.keys()
@@ -558,13 +559,16 @@ class Experiment(CallbackNotifier):
 
             # Callback
             self._on_batch_collected(batch)
-
             # Loop over groups
             training_start = time.time()
             for group in self.train_group_map.keys():
                 group_batch = batch.exclude(*self._get_excluded_keys(group))
                 group_batch = self.algorithm.process_batch(group, group_batch)
                 group_batch = group_batch.reshape(-1)
+                print("Group batch initial device", group_batch.device)
+                if not self.on_policy:
+                    group_batch = group_batch.to('cpu')
+                print("Group batch edited device: ", group_batch.device)
                 self.replay_buffers[group].extend(group_batch)
 
                 training_tds = []
@@ -647,6 +651,8 @@ class Experiment(CallbackNotifier):
 
     def _optimizer_loop(self, group: str) -> TensorDictBase:
         subdata = self.replay_buffers[group].sample()
+        if not self.on_policy:
+            subdata = subdata.to('cuda')
         loss_vals = self.losses[group](subdata)
         training_td = loss_vals.detach()
         loss_vals = self.algorithm.process_loss_vals(group, loss_vals)

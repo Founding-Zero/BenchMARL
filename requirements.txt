@@ -4,3 +4,10 @@ torch
 tqdm
 hydra-core
 vmas>=1.2.10
+eztils==0.4.94
+wandb==0.16.6
+numpy==1.26.4
+omegaconf==2.3.0
+
+
+

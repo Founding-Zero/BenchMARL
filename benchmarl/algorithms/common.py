@@ -147,11 +147,11 @@ class Algorithm(ABC):
         """
         memory_size = self.experiment_config.replay_buffer_memory_size(self.on_policy)
         sampling_size = self.experiment_config.train_minibatch_size(self.on_policy)
-        storing_device = self.device
+        storing_device = 'cpu' #self.device
         sampler = SamplerWithoutReplacement() if self.on_policy else RandomSampler()
-
+        print("Memory Size:", memory_size)
         return TensorDictReplayBuffer(
-            storage=LazyTensorStorage(memory_size, device=storing_device),
+            storage=LazyTensorStorage(memory_size),
             sampler=sampler,
             batch_size=sampling_size,
             priority_key=(group, "td_error"),
